@@ -1,0 +1,4 @@
+/nfs/nfsboot/isos/Win10_20H2_x64.iso /nfs/nfsboot/windows10 udf ro,loop 0 0
+/nfs/nfsboot/isos/Win11_23H2_x64.iso /nfs/nfsboot/windows11 udf ro,loop 0 0
+/nfs/nfsboot/isos/archlinux-2023.12.01-x86_64.iso /nfs/nfsboot/archlinux iso9660 ro,loop 0 0
+/nfs/nfsboot/isos/ubuntu-22.04.3-live-server-amd64.iso /nfs/nfsboot/ubuntu iso9660 ro,loop 0 0

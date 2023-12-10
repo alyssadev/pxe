@@ -1,0 +1,145 @@
+#!ipxe
+
+# boilerplate
+:defaults
+isset ${ip} || dhcp
+ntp 0.pool.ntp.org ||
+iseq ${cls} serial && goto ignore_cls ||
+set cls:hex 1b:5b:4a  # ANSI clear screen sequence - "^[[J"
+set cls ${cls:string}
+:ignore_cls
+set boot-url http://pi.lan.aly.pet/httpboot
+set nbxyz https://github.com/netbootxyz
+set menu-timeout 10000
+set submenu-timeout ${menu-timeout}
+isset ${menu-default} || set menu-default exit
+goto start
+
+:cancel
+echo You cancelled the menu, dropping you to a shell
+
+:shell
+echo Type 'exit' to get back to the menu
+shell
+set menu-timeout 0
+set submenu-timeout 0
+goto start
+
+:failed
+echo Booting failed, dropping to shell
+goto shell
+
+:reboot
+reboot
+
+:exit
+exit
+
+# menu
+:start
+menu iPXE ${version} (${net0/ip} ${net0/mac} ${platform})
+item --key b exit          Boot from local drive (b)
+item --key r reboot        Reboot computer (r)
+item --gap -- Linux
+item --key u ubuntu        Ubuntu Server LTS (22.04) (u)
+item --key a arch          Arch Linux (2023.12.01) (a)
+item --gap -- Windows
+item --key w winrecovery   Windows 11 (recovery) (w)
+item windows11             Windows 11 (23H2)
+item windows10             Windows 10 (20H2)
+item --gap -- Utils
+item --key g gparted       GParted (g)
+item systemrescue          System Rescue CD
+item --gap -- Advanced Options
+item testkernel            Test kernel
+item --key s shell         Drop to iPXE shell (s)
+choose --timeout ${menu-timeout} --default ${menu-default} selected || goto cancel
+set menu-timeout 0
+goto ${selected}
+
+# linux
+:ubuntu
+echo Starting Ubuntu Server
+imgfree
+set base-url ${boot-url}/ubuntu
+kernel ${base-url}/casper/vmlinuz nfsroot=192.168.20.200:/nfs/nfsboot/ubuntu ro netboot=nfs boot=casper ip=dhcp
+initrd ${base-url}/casper/initrd
+boot || goto failed
+goto start
+
+:arch
+echo Starting Arch
+imgfree
+set base-url ${boot-url}/archlinux/arch/boot
+kernel ${base-url}/x86_64/vmlinuz-linux archisobasedir=arch archiso_nfs_srv=192.168.20.200:/nfs/nfsboot/archlinux ip=dhcp
+initrd ${base-url}/x86_64/initramfs-linux.img
+initrd ${base-url}/amd-ucode.img
+initrd ${base-url}/intel-ucode.img
+boot || goto failed
+goto start
+
+# windows
+:windows10
+echo Starting Windows 10
+set winver 10
+set pe-url 10
+goto windows
+
+:windows11
+echo Starting Windows 11
+set winver 11
+set pe-url 11
+goto windows
+
+:winrecovery
+echo Starting Windows 11 (recovery)
+set winver 11
+goto windows
+
+:windows
+set iso-url ${boot-url}/windows${winver}
+imgfree
+kernel                                    ${boot-url}/utils/wimboot              gui
+isset ${pe-url} && initrd -n winpeshl.ini ${boot-url}/utils/winpeshl.ini         winpeshl.ini ||
+isset ${pe-url} && initrd -n install.bat  ${boot-url}/utils/${winver}install.bat install.bat  ||
+initrd                    -n bootmgr      ${iso-url}/bootmgr                     bootmgr      ||
+initrd                    -n bootmgr.efi  ${iso-url}/bootmgr.efi                 bootmgr.efi  ||      
+initrd                    -n bcd          ${iso-url}/boot/bcd                    bcd          ||
+initrd                    -n boot.sdi     ${iso-url}/boot/boot.sdi               boot.sdi     ||
+initrd                    -n boot.wim     ${iso-url}/sources/boot.wim            boot.wim
+boot || goto failed
+goto start
+
+# other
+
+:gparted
+set base-url     ${nbxyz}/debian-squash/releases/download/1.5.0-6-521af9dc
+set vmlinuz      ${boot-url}/gparted/vmlinuz
+set initrd       ${boot-url}/gparted/initrd
+set cmdline      boot=live fetch=${base-url}/filesystem.squashfs union=overlay username=user vga=788 initrd=initrd.magic
+goto bootkernel
+
+:systemrescue
+set base-url ${nbxyz}/asset-mirror/releases/download/10.02-182f0000
+set vmlinuz  ${boot-url}/systemrescue/vmlinuz
+set initrd   ${boot-url}/systemrescue/initrd
+set ipparam  BOOTIF=${netX/mac} ip=dhcp net.ifnames=0
+set cmdline  archisobasedir=sysresccd ${ipparam} archiso_http_srv=${base-url} initrd=initrd.magic
+goto bootkernel
+
+:testkernel
+echo -n vmlinuz: ${} && read vmlinuz
+echo -n initrd: ${} && read initrd
+echo -n cmdline: ${} && read cmdline
+goto bootkernel
+
+:bootkernel
+#echo vmlinuz: ${vmlinuz}
+#echo initrd: ${initrd}
+#echo cmdline: ${cmdline}
+#echo -n Confirm: && read _enter
+imgfree
+kernel ${vmlinuz} ${cmdline}
+initrd ${initrd}
+boot || goto failed
+goto start

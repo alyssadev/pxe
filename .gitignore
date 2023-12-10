@@ -1,0 +1,7 @@
+vmlinuz
+initrd
+wimboot
+*.iso
+*.efi
+*.kpxe
+ipxe/

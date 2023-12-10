@@ -1,0 +1,4 @@
+#!ipxe
+
+dhcp
+chain http://pi.lan.aly.pet/httpboot/menu.ipxe
